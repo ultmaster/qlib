@@ -120,10 +120,15 @@ class FiniteVectorEnv(BaseVectorEnv):
     from child workers. See :class:`qlib.rl.utils.LogWriter`.
     """
 
-    def __init__(self, logger: LogWriter | list[LogWriter], env_fns: list[Callable[..., gym.Env]], **kwargs):
+    def __init__(self, logger: LogWriter | list[LogWriter] | None, env_fns: list[Callable[..., gym.Env]], **kwargs):
         super().__init__(env_fns, **kwargs)
 
-        self._logger: list[LogWriter] = logger if isinstance(logger, list) else [logger]
+        if isinstance(logger, list):
+            self._logger: list[LogWriter] = logger
+        elif isinstance(logger, LogWriter):
+            self._logger: list[LogWriter] = [logger]
+        else:
+            self._logger: list[LogWriter] = []
         self._alive_env_ids: Set[int] = set()
         self._reset_alive_envs()
         self._default_obs = self._default_info = self._default_rew = None
@@ -288,7 +293,21 @@ def finite_env_factory(
     concurrency: int,
     logger: LogWriter | list[LogWriter],
 ) -> FiniteVectorEnv:
-    """Helper function to create a vector env.
+    """Helper function to create a vector env. Can be used to replace usual VectorEnv.
+
+    For example, once you wrote: ::
+
+        DummyVectorEnv([lambda: gym.make(task) for _ in range(env_num)])
+
+    Now you can replace it with: ::
+
+        finite_env_factory(lambda: gym.make(task), "dummy", env_num, my_logger)
+
+    By doing such replacement, you have two additional features enabled (compared to normal VectorEnv):
+
+    1. The vector env will check for NaN observation and kill the worker when its found.
+       See :class:`FiniteVectorEnv` for why we need this.
+    2. A logger to explicit collect logs from environment workers.
 
     Parameters
     ----------

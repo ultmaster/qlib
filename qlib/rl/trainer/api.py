@@ -59,16 +59,19 @@ def backtest(
     # To save bandwidth
     min_loglevel = min(lg.loglevel for lg in logger) if isinstance(logger, list) else logger.loglevel
 
+    def env_factory():
+        return EnvWrapper(
+            simulator_fn,
+            state_interpreter,
+            action_interpreter,
+            seed_iterator,
+            reward,
+            logger=LogCollector(min_loglevel=min_loglevel),
+        )
+
     with DataQueue(initial_states) as seed_iterator:
         vector_env = finite_env_factory(
-            lambda: EnvWrapper(
-                simulator_fn,
-                state_interpreter,
-                action_interpreter,
-                seed_iterator,
-                reward,
-                logger=LogCollector(min_loglevel=min_loglevel),
-            ),
+            env_factory,
             finite_env_type,
             concurrency,
             logger,
